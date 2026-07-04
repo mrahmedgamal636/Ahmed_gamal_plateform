@@ -330,8 +330,17 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
         })
       });
 
-      const data = await response.json();
-      if (data.error) throw new Error(data.error);
+      let data;
+      try {
+        const text = await response.text();
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Server returned an invalid response (Status: ${response.status})`);
+      }
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || `Server Error: ${response.status}`);
+      }
 
       if (data.questions && Array.isArray(data.questions)) {
         const batch = quizQuestions;

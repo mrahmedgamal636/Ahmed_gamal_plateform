@@ -1,4 +1,4 @@
-import { getAI } from "./_ai";
+import { getAI } from "./_ai.js";
 
 export default async function handler(req: any, res: any) {
   // Ensure JSON parsing support for both serverless and express contexts

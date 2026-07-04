@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import MarvelBackground from './components/MarvelBackground';
+import SpaceBackground from './components/SpaceBackground';
+import MatrixBackground from './components/MatrixBackground';
 import StudentDashboard from './components/StudentDashboard';
 import AdminDashboard from './components/AdminDashboard';
 
 export default function App() {
   const [portal, setPortal] = useState<'student' | 'admin'>('student');
+  const [theme, setTheme] = useState<'marvel' | 'space' | 'matrix'>('marvel');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('jamal_theme') as 'marvel' | 'space' | 'matrix';
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+  }, []);
+
+  const handleThemeChange = (newTheme: 'marvel' | 'space' | 'matrix') => {
+    setTheme(newTheme);
+    localStorage.setItem('jamal_theme', newTheme);
+  };
 
   // URL query parameter check & LocalStorage check to isolate admin area
   useEffect(() => {
@@ -36,14 +51,14 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen relative font-sans text-white">
-      {/* Dynamic Futuristic Space Background */}
-      <MarvelBackground />
-
+    <div className={`min-h-screen relative font-sans text-white ${theme === 'matrix' ? 'font-mono' : ''}`}>
+      {theme === 'marvel' && <MarvelBackground />}
+      {theme === 'space' && <SpaceBackground />}
+      {theme === 'matrix' && <MatrixBackground />}
+      
       {portal === 'student' && (
-        <StudentDashboard onLogout={handleStudentLogout} />
+        <StudentDashboard onLogout={handleStudentLogout} currentTheme={theme} onThemeChange={handleThemeChange} />
       )}
-
       {portal === 'admin' && (
         <AdminDashboard onLogout={handleAdminLogout} />
       )}

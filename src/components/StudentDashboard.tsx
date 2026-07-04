@@ -35,7 +35,10 @@ import {
   Minimize2,
   Cpu,
   Clock,
-  Sparkles
+  Sparkles,
+  Home,
+  MessageCircle,
+  Palette
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import CryptoJS from 'crypto-js';
@@ -44,9 +47,11 @@ const SECRET_KEY = "JamalAcademy_Secret_2026";
 
 interface StudentDashboardProps {
   onLogout: () => void;
+  currentTheme?: 'marvel' | 'space' | 'matrix';
+  onThemeChange?: (theme: 'marvel' | 'space' | 'matrix') => void;
 }
 
-export default function StudentDashboard({ onLogout }: StudentDashboardProps) {
+export default function StudentDashboard({ onLogout, currentTheme = 'marvel', onThemeChange }: StudentDashboardProps) {
   // Authentication & Registration state
   const [student, setStudent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -107,6 +112,38 @@ export default function StudentDashboard({ onLogout }: StudentDashboardProps) {
   ]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Message to Teacher state
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [messageText, setMessageText] = useState('');
+  const [isAnonymousMessage, setIsAnonymousMessage] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+
+  const handleSendTeacherMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageText.trim() || isSendingMessage) return;
+    setIsSendingMessage(true);
+    try {
+      await addDoc(collection(db, 'messages'), {
+        text: messageText,
+        student_id: student.id || 'unknown',
+        student_name: isAnonymousMessage ? 'فاعل خير (مجهول)' : student.name,
+        student_code: isAnonymousMessage ? 'مجهول' : student.code,
+        class_name: student.className,
+        timestamp: new Date().toISOString(),
+        is_anonymous: isAnonymousMessage,
+      });
+      alert('تم إرسال رسالتك السرية بنجاح إلى القائد!');
+      setShowMessageModal(false);
+      setMessageText('');
+      setIsAnonymousMessage(false);
+    } catch (err) {
+      console.error("Error sending message", err);
+      alert('حدث خطأ أثناء إرسال الرسالة. حاول مرة أخرى.');
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
 
   // Load existing session
   useEffect(() => {
@@ -965,8 +1002,74 @@ export default function StudentDashboard({ onLogout }: StudentDashboardProps) {
         </div>
       </nav>
 
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex fixed right-0 top-20 bottom-0 w-64 bg-black/80 border-l border-gray-800 backdrop-blur-xl flex-col p-6 z-30">
+        <div className="space-y-4">
+          <h3 className="text-gray-500 font-black text-xs uppercase tracking-widest mb-6 border-b border-gray-800 pb-2">Navigation</h3>
+          {[
+            { id: 'home', label: 'الرئيسية', icon: Home },
+            { id: 'missions', label: 'الاختبارات', icon: BookOpen },
+            { id: 'lectures', label: 'المحاضرات', icon: Play },
+            { id: 'friday', label: 'فرايداي AI', icon: Zap },
+            { id: 'profile', label: 'الملف الشخصي', icon: User }
+          ].map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`w-full flex items-center gap-3 py-4 px-4 rounded-xl text-sm font-black transition ${
+                  activeTab === tab.id
+                    ? 'bg-rose-600 text-white shadow-lg'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                {tab.label}
+              </button>
+            );
+          })}
+
+          <h3 className="text-gray-500 font-black text-xs uppercase tracking-widest mt-10 mb-6 border-b border-gray-800 pb-2">Theme Selection</h3>
+          <div className="grid grid-cols-3 gap-2">
+            <button onClick={() => onThemeChange?.('marvel')} className={`p-2 rounded-xl border-2 transition ${currentTheme === 'marvel' ? 'border-rose-500 bg-rose-500/20' : 'border-gray-800 bg-black hover:bg-gray-900'}`}><Palette className="w-5 h-5 text-rose-500 mx-auto"/></button>
+            <button onClick={() => onThemeChange?.('space')} className={`p-2 rounded-xl border-2 transition ${currentTheme === 'space' ? 'border-indigo-500 bg-indigo-500/20' : 'border-gray-800 bg-black hover:bg-gray-900'}`}><Sparkles className="w-5 h-5 text-indigo-500 mx-auto"/></button>
+            <button onClick={() => onThemeChange?.('matrix')} className={`p-2 rounded-xl border-2 transition ${currentTheme === 'matrix' ? 'border-green-500 bg-green-500/20' : 'border-gray-800 bg-black hover:bg-gray-900'}`}><Cpu className="w-5 h-5 text-green-500 mx-auto"/></button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Mobile Bottom Bar */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-black/95 border-t border-gray-800 backdrop-blur-xl z-50">
+        <div className="flex justify-around items-center h-20 px-2">
+          {[
+            { id: 'home', label: 'الرئيسية', icon: Home },
+            { id: 'missions', label: 'الاختبارات', icon: BookOpen },
+            { id: 'lectures', label: 'المحاضرات', icon: Play },
+            { id: 'friday', label: 'فرايداي AI', icon: Zap },
+            { id: 'profile', label: 'الملف', icon: User }
+          ].map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${
+                  activeTab === tab.id
+                    ? 'text-rose-500'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <Icon className="w-6 h-6" />
+                <span className="text-[10px] font-black">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
       {/* Main Container Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 lg:pb-8 lg:pr-[18rem]">
         
         {/* Active Exam Overlay Modal */}
         <AnimatePresence>
@@ -1201,8 +1304,68 @@ export default function StudentDashboard({ onLogout }: StudentDashboardProps) {
                     "قوة الكلمات هي القوة الخارقة الأشد تأثيراً في الكون. ثق بنفسك يا بطل، وتدرب جيداً في أكاديميتنا لتصنع مستقبلك الخاص!"
                   </p>
                 </div>
+                
+                <button
+                  onClick={() => setShowMessageModal(true)}
+                  className="mt-4 w-full flex justify-center items-center gap-2 bg-rose-600/20 border border-rose-500/50 hover:bg-rose-600/40 text-rose-300 font-bold py-3 rounded-xl transition"
+                >
+                  <MessageCircle className="w-4 h-4" /> إرسال رسالة للقائد
+                </button>
               </div>
             </div>
+
+            {/* Teacher Message Modal */}
+            <AnimatePresence>
+              {showMessageModal && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                >
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="bg-gray-900 border border-gray-700 rounded-3xl p-6 w-full max-w-md shadow-2xl"
+                  >
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-black text-white">إرسال رسالة لمستر أحمد</h3>
+                      <button onClick={() => setShowMessageModal(false)} className="text-gray-400 hover:text-white">
+                        <X className="w-6 h-6" />
+                      </button>
+                    </div>
+                    <form onSubmit={handleSendTeacherMessage} className="space-y-4 text-right">
+                      <textarea
+                        required
+                        className="w-full bg-black border border-gray-700 focus:border-rose-500 rounded-xl p-4 text-white resize-none"
+                        rows={4}
+                        placeholder="اكتب رسالتك هنا... (اقتراح، شكر، شكوى، مشكلة)"
+                        value={messageText}
+                        onChange={e => setMessageText(e.target.value)}
+                      />
+                      <div className="flex items-center gap-3 justify-end bg-black/50 p-3 rounded-xl border border-gray-800">
+                        <label htmlFor="anonymous" className="text-sm text-gray-300 font-bold cursor-pointer select-none">إرسال بشكل مجهول (بدون اسم)</label>
+                        <input
+                          id="anonymous"
+                          type="checkbox"
+                          className="w-5 h-5 accent-rose-500 cursor-pointer"
+                          checked={isAnonymousMessage}
+                          onChange={e => setIsAnonymousMessage(e.target.checked)}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={isSendingMessage}
+                        className="w-full bg-rose-600 hover:bg-rose-500 disabled:bg-gray-700 text-white font-black py-4 rounded-xl text-lg transition"
+                      >
+                        {isSendingMessage ? 'جاري الإرسال...' : 'إرسال الرسالة'}
+                      </button>
+                    </form>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Student statistics panel */}
             <div className="bg-black/60 border border-gray-800 backdrop-blur-md rounded-2xl p-6 space-y-6">
@@ -1307,29 +1470,6 @@ export default function StudentDashboard({ onLogout }: StudentDashboardProps) {
           {/* Column 2 & 3: Content area with custom Tabs */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* Custom Tab selectors */}
-            <div className="grid grid-cols-5 gap-2 bg-black border border-gray-800 p-1.5 rounded-2xl">
-              {[
-                { id: 'home', label: 'الرئيسية' },
-                { id: 'missions', label: 'الاختبارات' },
-                { id: 'lectures', label: 'المحاضرات' },
-                { id: 'friday', label: 'فرايداي AI' },
-                { id: 'profile', label: 'الملف الشخصي' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`py-3 px-1.5 rounded-xl text-xs md:text-sm font-black transition ${
-                    activeTab === tab.id
-                      ? 'bg-rose-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
             {/* Tab view renders */}
             <div>
               {activeTab === 'home' && (
@@ -1588,6 +1728,23 @@ export default function StudentDashboard({ onLogout }: StudentDashboardProps) {
                           <span className="text-xs text-white mt-1">{hero.nameAr}</span>
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* PLATFORM THEME SELECTION */}
+                  <div className="bg-gradient-to-br from-gray-950 to-slate-900 border-4 border-black shadow-[6px_6px_0px_#000] p-6 rounded-2xl lg:hidden">
+                    <div className="border-b-2 border-gray-800 pb-3 mb-4 text-right">
+                      <h4 className="font-sans font-black text-white text-xl tracking-wider">
+                        PLATFORM THEME (سمة المنصة)
+                      </h4>
+                      <p className="text-xs font-bold text-gray-500 mt-1">
+                        اختر السمة البصرية والخلفية المتحركة للمنصة
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <button onClick={() => onThemeChange?.('marvel')} className={`p-4 rounded-xl border-2 font-black transition flex flex-col justify-center items-center gap-2 ${currentTheme === 'marvel' ? 'border-rose-500 bg-rose-500/20 text-rose-500' : 'border-gray-800 bg-black hover:bg-gray-900 text-gray-500'}`}><Palette className="w-8 h-8"/>مارفل</button>
+                      <button onClick={() => onThemeChange?.('space')} className={`p-4 rounded-xl border-2 font-black transition flex flex-col justify-center items-center gap-2 ${currentTheme === 'space' ? 'border-indigo-500 bg-indigo-500/20 text-indigo-500' : 'border-gray-800 bg-black hover:bg-gray-900 text-gray-500'}`}><Sparkles className="w-8 h-8"/>فضاء</button>
+                      <button onClick={() => onThemeChange?.('matrix')} className={`p-4 rounded-xl border-2 font-black transition flex flex-col justify-center items-center gap-2 ${currentTheme === 'matrix' ? 'border-green-500 bg-green-500/20 text-green-500' : 'border-gray-800 bg-black hover:bg-gray-900 text-gray-500'}`}><Cpu className="w-8 h-8"/>ماتريكس</button>
                     </div>
                   </div>
 

@@ -54,13 +54,14 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [loginError, setLoginError] = useState(false);
 
   // Nav Tabs
-  const [activeTab, setActiveTab] = useState<'stats' | 'students' | 'videos' | 'quizzes' | 'results' | 'rankings' | 'scanner'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'students' | 'videos' | 'quizzes' | 'results' | 'rankings' | 'scanner' | 'messages'>('stats');
 
   // Real Database state
   const [students, setStudents] = useState<any[]>([]);
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [results, setResults] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Filter states
@@ -209,6 +210,10 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       const resultSnap = await getDocs(collection(db, 'results'));
       const rList = resultSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setResults(rList);
+
+      const msgSnap = await getDocs(collection(db, 'messages'));
+      const msgList = msgSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setMessages(msgList.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
 
     } catch (err) {
       console.error("Error loading admin datasets:", err);
@@ -580,7 +585,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {/* Navigation Tabs */}
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-2 bg-black border border-gray-800 p-1.5 rounded-2xl mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 bg-black border border-gray-800 p-1.5 rounded-2xl mb-8">
           {[
             { id: 'stats', label: 'لوحة التحكم' },
             { id: 'scanner', label: 'مسح النتائج (QR)' },
@@ -588,7 +593,8 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
             { id: 'quizzes', label: 'بنك الامتحانات' },
             { id: 'videos', label: 'إدارة الفيديوهات' },
             { id: 'results', label: 'سجلات الدرجات' },
-            { id: 'rankings', label: 'لوحة الشرف' }
+            { id: 'rankings', label: 'لوحة الشرف' },
+            { id: 'messages', label: 'صندوق الرسائل' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -1487,8 +1493,58 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
             </div>
           )}
-        </div>
 
+          {/* Tab: Messages */}
+          {activeTab === 'messages' && (
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6">
+              <h2 className="text-2xl font-black text-white italic tracking-widest uppercase mb-6 flex items-center gap-2">
+                <span className="bg-rose-600 w-2 h-8 block"></span>
+                رسائل الطلاب (السرية والعلنية)
+              </h2>
+
+              <div className="space-y-4">
+                {messages.length === 0 ? (
+                  <div className="text-center py-10 text-gray-500 font-bold">لا توجد رسائل حالياً.</div>
+                ) : (
+                  messages.map(msg => (
+                    <div key={msg.id} className="bg-black/50 border border-gray-800 p-6 rounded-2xl flex flex-col relative overflow-hidden">
+                      {msg.is_anonymous && (
+                        <div className="absolute top-0 right-0 bg-gray-800 text-gray-300 text-[10px] font-black px-3 py-1 rounded-bl-xl border-b border-l border-gray-700">
+                          مجهول
+                        </div>
+                      )}
+                      {!msg.is_anonymous && (
+                        <div className="absolute top-0 right-0 bg-sky-900/50 text-sky-300 text-[10px] font-black px-3 py-1 rounded-bl-xl border-b border-l border-sky-800">
+                          باسم الطالب
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="text-right">
+                          <span className={`block font-black text-lg ${msg.is_anonymous ? 'text-gray-400' : 'text-white'}`}>
+                            {msg.student_name}
+                          </span>
+                          {!msg.is_anonymous && (
+                            <span className="text-xs text-sky-400 font-mono block mt-1">{msg.student_code} | {msg.class_name}</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500 font-bold" dir="ltr">
+                          {new Date(msg.timestamp).toLocaleString('ar-EG')}
+                        </span>
+                      </div>
+                      
+                      <div className="bg-gray-800/40 p-4 rounded-xl border border-gray-700/50">
+                        <p className="text-gray-200 text-right whitespace-pre-wrap leading-relaxed font-semibold">
+                          {msg.text}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

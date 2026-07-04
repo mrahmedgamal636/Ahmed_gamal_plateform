@@ -1,0 +1,113 @@
+{
+  "entities": {
+    "student": {
+      "title": "Student",
+      "description": "Student registration and profile details",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "Unique code for the student" },
+        "name": { "type": "string", "description": "Student full name" },
+        "phone": { "type": "string", "description": "Parent or student phone number" },
+        "class_name": { "type": "string", "description": "Academic year class, e.g. الصف الأول الثانوي" },
+        "group_name": { "type": "string", "description": "Group name or day of attendance" },
+        "total_score": { "type": "number", "description": "Cumulative total score across all quizzes" },
+        "badges": { "type": "array", "description": "Achievements/Badges earned" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "name", "phone", "class_name", "group_name"]
+    },
+    "quiz": {
+      "title": "Quiz",
+      "description": "Exams and quizzes initialized by teacher",
+      "type": "object",
+      "properties": {
+        "quiz_name": { "type": "string" },
+        "class_name": { "type": "string" },
+        "is_active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["quiz_name", "class_name", "is_active"]
+    },
+    "question": {
+      "title": "Question",
+      "description": "A single multiple-choice question in a quiz",
+      "type": "object",
+      "properties": {
+        "question_text": { "type": "string" },
+        "choice_a": { "type": "string" },
+        "choice_b": { "type": "string" },
+        "choice_c": { "type": "string" },
+        "choice_d": { "type": "string" },
+        "correct_answer": { "type": "string", "enum": ["A", "B", "C", "D"] }
+      },
+      "required": ["question_text", "choice_a", "choice_b", "choice_c", "choice_d", "correct_answer"]
+    },
+    "result": {
+      "title": "Result",
+      "description": "Quiz results submitted by students",
+      "type": "object",
+      "properties": {
+        "student_code": { "type": "string" },
+        "student_name": { "type": "string" },
+        "phone": { "type": "string" },
+        "class_name": { "type": "string" },
+        "group_name": { "type": "string" },
+        "quiz_id": { "type": "string" },
+        "quiz_name": { "type": "string" },
+        "score": { "type": "number" },
+        "total_questions": { "type": "number" },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["student_code", "student_name", "quiz_id", "score", "total_questions"]
+    },
+    "video": {
+      "title": "Video",
+      "description": "Mission training videos uploaded by teacher",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "class_name": { "type": "string" },
+        "youtube_url": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "class_name", "youtube_url"]
+    },
+    "chat_message": {
+      "title": "ChatMessage",
+      "description": "A single chat message in the student's AI conversation history",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["role", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/students/{studentId}": {
+      "schema": "student",
+      "description": "Student profiles"
+    },
+    "/quizzes/{quizId}": {
+      "schema": "quiz",
+      "description": "Quizzes"
+    },
+    "/quizzes/{quizId}/questions/{questionId}": {
+      "schema": "question",
+      "description": "Questions within a quiz"
+    },
+    "/results/{resultId}": {
+      "schema": "result",
+      "description": "Quiz attempt records"
+    },
+    "/videos/{videoId}": {
+      "schema": "video",
+      "description": "Teacher video uploads"
+    },
+    "/students/{studentId}/chat/{messageId}": {
+      "schema": "chat_message",
+      "description": "Student AI chat logs"
+    }
+  }
+}

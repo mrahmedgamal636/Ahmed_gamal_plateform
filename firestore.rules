@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Students collection and subcollections
+    match /students/{studentId} {
+      allow read, write: if true;
+    }
+    match /students/{studentId}/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Quizzes collection and subcollections
+    match /quizzes/{quizId} {
+      allow read, write: if true;
+    }
+    match /quizzes/{quizId}/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Results collection and subcollections
+    match /results/{resultId} {
+      allow read, write: if true;
+    }
+    match /results/{resultId}/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Videos collection and subcollections
+    match /videos/{videoId} {
+      allow read, write: if true;
+    }
+    match /videos/{videoId}/{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Ahmed Gamal English Academy",
+  "description": "An elite Marvel-inspired educational platform for learning English with Mr. Ahmed Gamal, featuring professional student and teacher dashboards, automated exam management, and integrated AI capabilities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

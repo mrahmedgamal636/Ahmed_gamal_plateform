@@ -13,6 +13,8 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
+import CryptoJS from 'crypto-js';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import { 
   Shield, 
   Trophy, 
@@ -33,8 +35,13 @@ import {
   Cpu,
   ArrowLeft,
   ChevronRight,
+  QrCode,
+  ScanLine,
+  Check,
   Database
 } from 'lucide-react';
+
+const SECRET_KEY = "JamalAcademy_Secret_2026";
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -47,7 +54,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [loginError, setLoginError] = useState(false);
 
   // Nav Tabs
-  const [activeTab, setActiveTab] = useState<'stats' | 'students' | 'videos' | 'quizzes' | 'results' | 'rankings'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'students' | 'videos' | 'quizzes' | 'results' | 'rankings' | 'scanner'>('stats');
 
   // Real Database state
   const [students, setStudents] = useState<any[]>([]);
@@ -60,6 +67,49 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [searchStudent, setSearchStudent] = useState('');
   const [filterClass, setFilterClass] = useState('all');
   const [filterGroup, setFilterGroup] = useState('all');
+
+  // Scanner State
+  const [scanResult, setScanResult] = useState<any>(null);
+
+  // Edit States
+  const [editingStudent, setEditingStudent] = useState<string | null>(null);
+  const [editStudentData, setEditStudentData] = useState<any>({});
+  
+  const [editingQuestion, setEditingQuestion] = useState<string | null>(null);
+  const [editQuestionData, setEditQuestionData] = useState<any>({});
+
+  const handleSaveQuestionEdit = async (questionId: string) => {
+    try {
+      if (selectedQuiz) {
+        await updateDoc(doc(db, 'quizzes', selectedQuiz.id, 'questions', questionId), {
+          question_text: editQuestionData.question_text,
+          choice_a: editQuestionData.choice_a,
+          choice_b: editQuestionData.choice_b,
+          choice_c: editQuestionData.choice_c,
+          choice_d: editQuestionData.choice_d,
+          correct_answer: editQuestionData.correct_answer
+        });
+        alert("تم تحديث السؤال بنجاح!");
+        setEditingQuestion(null);
+        handleOpenQuizDetails(selectedQuiz); // Refresh questions
+      }
+    } catch (err) {
+      console.error("Error updating question", err);
+      alert("حدث خطأ أثناء تحديث السؤال.");
+    }
+  };
+
+  const handleScan = (result: any) => {
+    if (result && result.length > 0) {
+      try {
+        const decrypted = CryptoJS.AES.decrypt(result[0].rawValue, SECRET_KEY).toString(CryptoJS.enc.Utf8);
+        const data = JSON.parse(decrypted);
+        setScanResult(data);
+      } catch (err) {
+        console.error("Invalid QR code", err);
+      }
+    }
+  };
 
   // Video Form
   const [newVideo, setNewVideo] = useState({ title: '', className: 'الصف الأول الثانوي', url: '' });
@@ -100,6 +150,24 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       fetchAdminData();
     }
   }, []);
+
+  const handleSaveStudentEdit = async (studentId: string) => {
+    try {
+      await updateDoc(doc(db, 'students', studentId), {
+        name: editStudentData.name,
+        password: editStudentData.password,
+        phone: editStudentData.phone,
+        class_name: editStudentData.class_name,
+        group_name: editStudentData.group_name
+      });
+      alert("تم تحديث بيانات الطالب بنجاح!");
+      setEditingStudent(null);
+      fetchAdminData();
+    } catch (err) {
+      console.error("Error updating student", err);
+      alert("حدث خطأ أثناء التحديث.");
+    }
+  };
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -512,9 +580,10 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {/* Navigation Tabs */}
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 bg-black border border-gray-800 p-1.5 rounded-2xl mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-2 bg-black border border-gray-800 p-1.5 rounded-2xl mb-8">
           {[
             { id: 'stats', label: 'لوحة التحكم' },
+            { id: 'scanner', label: 'مسح النتائج (QR)' },
             { id: 'students', label: 'الطلاب المسجلين' },
             { id: 'quizzes', label: 'بنك الامتحانات' },
             { id: 'videos', label: 'إدارة الفيديوهات' },
@@ -583,6 +652,52 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
             </div>
           )}
 
+          {activeTab === 'scanner' && (
+            <div className="bg-black border border-gray-800 rounded-3xl p-8 space-y-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-4 bg-red-600/20 rounded-xl">
+                  <ScanLine className="w-8 h-8 text-red-500" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black italic tracking-tight">مسح درجات الطلاب</h2>
+                  <p className="text-gray-400 text-sm mt-1">قم بمسح كود الـ QR الخاص بالطالب بعد إنهاء الامتحان في السنتر</p>
+                </div>
+              </div>
+              
+              <div className="max-w-md mx-auto aspect-square overflow-hidden rounded-2xl border-4 border-gray-800 relative bg-black">
+                <Scanner 
+                  onScan={handleScan}
+                  components={{
+                    audio: true,
+                    torch: true
+                  }}
+                  formats={["qr_code"]}
+                />
+                {scanResult && (
+                  <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center p-6 z-10 text-center">
+                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4">
+                      <Check className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-4">تم تسجيل النتيجة!</h3>
+                    <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 w-full text-right space-y-3 mb-6">
+                      <p className="text-gray-400 text-sm">الطالب: <span className="text-white font-bold block mt-1">{scanResult.student_name}</span></p>
+                      <p className="text-gray-400 text-sm">الكود: <span className="text-white font-bold block mt-1">{scanResult.student_code}</span></p>
+                      <p className="text-gray-400 text-sm">الصف: <span className="text-white font-bold block mt-1">{scanResult.class_name}</span></p>
+                      <p className="text-gray-400 text-sm">النتيجة: <span className="text-green-500 font-black block mt-1 text-xl">{scanResult.score}</span></p>
+                      <p className="text-gray-400 text-sm">الوقت: <span className="text-white font-bold block mt-1">{new Date(scanResult.timestamp).toLocaleString('ar-EG')}</span></p>
+                    </div>
+                    <button 
+                      onClick={() => setScanResult(null)}
+                      className="px-8 py-3 bg-red-600 hover:bg-red-500 rounded-xl text-white font-bold transition w-full shadow-lg"
+                    >
+                      مسح طالب آخر
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'students' && (
             <div className="space-y-6">
               
@@ -640,12 +755,13 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <th className="p-4">رقم الهاتف</th>
                       <th className="p-4">الصف</th>
                       <th className="p-4">المجموعة</th>
+                      <th className="p-4 text-center">إجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredStudents.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-gray-500 font-bold text-sm">
+                        <td colSpan={7} className="p-8 text-center text-gray-500 font-bold text-sm">
                           لا يوجد طلاب مسجلين يطابقون خيارات البحث الحالية.
                         </td>
                       </tr>
@@ -653,11 +769,57 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       filteredStudents.map((s, idx) => (
                         <tr key={s.id || idx} className="border-b border-gray-900 hover:bg-white/5 transition font-bold text-sm">
                           <td className="p-4 font-mono text-red-500">{s.code}</td>
-                          <td className="p-4 text-white uppercase">{s.name}</td>
-                          <td className="p-4 font-mono text-cyan-400">{s.password || 'بلا كلمة مرور'}</td>
-                          <td className="p-4 text-gray-400 font-mono">{s.phone}</td>
-                          <td className="p-4 text-gray-300">{s.class_name}</td>
-                          <td className="p-4 text-gray-300">{s.group_name}</td>
+                          {editingStudent === s.id ? (
+                            <>
+                              <td className="p-4"><input className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded" value={editStudentData.name} onChange={(e) => setEditStudentData({...editStudentData, name: e.target.value})} /></td>
+                              <td className="p-4"><input className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded" value={editStudentData.password || ''} onChange={(e) => setEditStudentData({...editStudentData, password: e.target.value})} /></td>
+                              <td className="p-4"><input className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded" value={editStudentData.phone} onChange={(e) => setEditStudentData({...editStudentData, phone: e.target.value})} /></td>
+                              <td className="p-4">
+                                <select className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded" value={editStudentData.class_name} onChange={(e) => setEditStudentData({...editStudentData, class_name: e.target.value})}>
+                                  <option value="الصف الأول الإعدادي">الأول الإعدادي</option>
+                                  <option value="الصف الثاني الإعدادي">الثاني الإعدادي</option>
+                                  <option value="الصف الثالث الإعدادي">الثالث الإعدادي</option>
+                                  <option value="الصف الأول الثانوي">الأول الثانوي</option>
+                                  <option value="الصف الثاني الثانوي">الثاني الثانوي</option>
+                                  <option value="الصف الثالث الثانوي">الثالث الثانوي</option>
+                                </select>
+                              </td>
+                              <td className="p-4">
+                                <select className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded" value={editStudentData.group_name} onChange={(e) => setEditStudentData({...editStudentData, group_name: e.target.value})}>
+                                  <option value="السبت">السبت</option>
+                                  <option value="الأحد">الأحد</option>
+                                  <option value="الإثنين">الإثنين</option>
+                                  <option value="الثلاثاء">الثلاثاء</option>
+                                  <option value="الأربعاء">الأربعاء</option>
+                                  <option value="الخميس">الخميس</option>
+                                  <option value="الجمعة">الجمعة</option>
+                                </select>
+                              </td>
+                              <td className="p-4 text-center">
+                                <button onClick={() => handleSaveStudentEdit(s.id)} className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs ml-2">حفظ</button>
+                                <button onClick={() => setEditingStudent(null)} className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-xs">إلغاء</button>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="p-4 text-white uppercase">{s.name}</td>
+                              <td className="p-4 font-mono text-cyan-400">{s.password || 'بلا كلمة مرور'}</td>
+                              <td className="p-4 text-gray-400 font-mono">{s.phone}</td>
+                              <td className="p-4 text-gray-300">{s.class_name}</td>
+                              <td className="p-4 text-gray-300">{s.group_name}</td>
+                              <td className="p-4 text-center">
+                                <button 
+                                  onClick={() => {
+                                    setEditingStudent(s.id);
+                                    setEditStudentData(s);
+                                  }} 
+                                  className="text-gray-400 hover:text-white transition"
+                                >
+                                  تعديل
+                                </button>
+                              </td>
+                            </>
+                          )}
                         </tr>
                       ))
                     )}
@@ -1072,20 +1234,55 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       <div className="space-y-3">
                         {quizQuestions.map((q, idx) => (
                           <div key={q.id || idx} className="bg-white/5 border border-gray-800 p-4 rounded-xl flex items-center justify-between">
-                            <div className="text-right">
-                              <span className="text-md font-bold text-white block">
-                                {idx + 1}. {q.question_text}
-                              </span>
-                              <span className="text-xs text-green-400 font-bold block mt-2">
-                                Correct option: {q.correct_answer}
-                              </span>
-                            </div>
-                            <button
-                              onClick={() => handleDeleteQuestion(q.id)}
-                              className="text-rose-500 hover:text-rose-400 p-2 border border-rose-950/40 hover:bg-rose-950/20 rounded-xl transition"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
+                            {editingQuestion === q.id ? (
+                              <div className="flex-1 text-right pl-4 space-y-2">
+                                <input className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded text-sm mb-2" value={editQuestionData.question_text} onChange={(e) => setEditQuestionData({...editQuestionData, question_text: e.target.value})} />
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <input className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded" value={editQuestionData.choice_a} onChange={(e) => setEditQuestionData({...editQuestionData, choice_a: e.target.value})} placeholder="Option A" />
+                                  <input className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded" value={editQuestionData.choice_b} onChange={(e) => setEditQuestionData({...editQuestionData, choice_b: e.target.value})} placeholder="Option B" />
+                                  <input className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded" value={editQuestionData.choice_c} onChange={(e) => setEditQuestionData({...editQuestionData, choice_c: e.target.value})} placeholder="Option C" />
+                                  <input className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded" value={editQuestionData.choice_d} onChange={(e) => setEditQuestionData({...editQuestionData, choice_d: e.target.value})} placeholder="Option D" />
+                                </div>
+                                <select className="w-full bg-gray-900 border border-gray-700 text-white px-2 py-1 rounded text-xs mt-2" value={editQuestionData.correct_answer} onChange={(e) => setEditQuestionData({...editQuestionData, correct_answer: e.target.value})}>
+                                  <option value="A">Option A</option>
+                                  <option value="B">Option B</option>
+                                  <option value="C">Option C</option>
+                                  <option value="D">Option D</option>
+                                </select>
+                                <div className="mt-2 flex gap-2">
+                                  <button onClick={() => handleSaveQuestionEdit(q.id)} className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs font-bold">حفظ التعديلات</button>
+                                  <button onClick={() => setEditingQuestion(null)} className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded text-xs font-bold">إلغاء</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="text-right">
+                                  <span className="text-md font-bold text-white block">
+                                    {idx + 1}. {q.question_text}
+                                  </span>
+                                  <span className="text-xs text-green-400 font-bold block mt-2">
+                                    Correct option: {q.correct_answer}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setEditingQuestion(q.id);
+                                      setEditQuestionData(q);
+                                    }}
+                                    className="text-gray-400 hover:text-white p-2 border border-gray-800 hover:bg-gray-800 rounded-xl transition text-xs font-bold"
+                                  >
+                                    تعديل
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteQuestion(q.id)}
+                                    className="text-rose-500 hover:text-rose-400 p-2 border border-rose-950/40 hover:bg-rose-950/20 rounded-xl transition"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         ))}
                       </div>

@@ -75,7 +75,7 @@ export default async function handler(req: any, res: any) {
     cleanContents.push({ role: "user", parts: [{ text: prompt.trim() }] });
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-3.1-flash-lite",
       contents: cleanContents,
       config: {
         systemInstruction: systemInstruction,

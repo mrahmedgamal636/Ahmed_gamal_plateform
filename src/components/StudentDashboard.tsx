@@ -478,7 +478,7 @@ export default function StudentDashboard({ onLogout }: StudentDashboardProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: userMsg,
-          chatHistory: chatMessages.slice(-10) // Send last 10 messages for context
+          chatHistory: chatMessages.slice(-4) // Send last 4 messages for context to save tokens
         })
       });
 

@@ -38,7 +38,8 @@ import {
   QrCode,
   ScanLine,
   Check,
-  Database
+  Database,
+  MessageCircle
 } from 'lucide-react';
 
 const SECRET_KEY = "JamalAcademy_Secret_2026";
@@ -582,36 +583,78 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Navigation Tabs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 bg-black border border-gray-800 p-1.5 rounded-2xl mb-8">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex fixed right-0 top-20 bottom-0 w-64 bg-black/80 border-l border-gray-800 backdrop-blur-xl flex-col p-6 z-30 overflow-y-auto">
+        <div className="space-y-4">
+          <h3 className="text-gray-500 font-black text-xs uppercase tracking-widest mb-6 border-b border-gray-800 pb-2">HQ Navigation</h3>
           {[
-            { id: 'stats', label: 'لوحة التحكم' },
-            { id: 'scanner', label: 'مسح النتائج (QR)' },
-            { id: 'students', label: 'الطلاب المسجلين' },
-            { id: 'quizzes', label: 'بنك الامتحانات' },
-            { id: 'videos', label: 'إدارة الفيديوهات' },
-            { id: 'results', label: 'سجلات الدرجات' },
-            { id: 'rankings', label: 'لوحة الشرف' },
-            { id: 'messages', label: 'صندوق الرسائل' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id as any);
-                setSelectedQuiz(null); // Clear selected quiz detail state on navigation
-              }}
-              className={`py-3 px-2 rounded-xl text-xs md:text-sm font-black transition ${
-                activeTab === tab.id
-                  ? 'bg-red-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+            { id: 'stats', label: 'لوحة التحكم', icon: Shield },
+            { id: 'scanner', label: 'مسح النتائج (QR)', icon: QrCode },
+            { id: 'students', label: 'الطلاب المسجلين', icon: Users },
+            { id: 'quizzes', label: 'بنك الامتحانات', icon: FileSignature },
+            { id: 'videos', label: 'إدارة الفيديوهات', icon: Video },
+            { id: 'results', label: 'سجلات الدرجات', icon: Database },
+            { id: 'rankings', label: 'لوحة الشرف', icon: Trophy },
+            { id: 'messages', label: 'صندوق الرسائل', icon: MessageCircle }
+          ].map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id as any);
+                  setSelectedQuiz(null); // Clear selected quiz detail state on navigation
+                }}
+                className={`w-full flex items-center gap-3 py-4 px-4 rounded-xl text-sm font-black transition ${
+                  activeTab === tab.id
+                    ? 'bg-red-600 text-white shadow-lg'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
+      </aside>
+
+      {/* Mobile Bottom Bar */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-black/95 border-t border-gray-800 backdrop-blur-xl z-50 overflow-x-auto scrollbar-none">
+        <div className="flex justify-start items-center h-20 px-4 gap-4 whitespace-nowrap min-w-max">
+          {[
+            { id: 'stats', label: 'لوحة التحكم', icon: Shield },
+            { id: 'scanner', label: 'مسح النتائج (QR)', icon: QrCode },
+            { id: 'students', label: 'الطلاب', icon: Users },
+            { id: 'quizzes', label: 'الامتحانات', icon: FileSignature },
+            { id: 'videos', label: 'الفيديوهات', icon: Video },
+            { id: 'results', label: 'الدرجات', icon: Database },
+            { id: 'rankings', label: 'الشرف', icon: Trophy },
+            { id: 'messages', label: 'الرسائل', icon: MessageCircle }
+          ].map(tab => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setActiveTab(tab.id as any);
+                  setSelectedQuiz(null);
+                }}
+                className={`flex flex-col items-center justify-center py-2 px-3 space-y-1 transition rounded-xl ${
+                  activeTab === tab.id
+                    ? 'text-red-500 bg-red-950/20'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-[10px] font-black">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 lg:pb-8 lg:pr-[18rem]">
 
         {/* Content Tabs Switch */}
         <div>

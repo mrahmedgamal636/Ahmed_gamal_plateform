@@ -1,7 +1,7 @@
 import express from "express";
-import studentAiHandler from "./student-ai";
-import teacherAiHandler from "./teacher-ai";
-import healthHandler from "./health";
+import studentAiHandler from "./_student-ai";
+import teacherAiHandler from "./_teacher-ai";
+import healthHandler from "./_health";
 
 export const app = express();
 

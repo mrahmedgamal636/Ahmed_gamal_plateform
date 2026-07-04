@@ -2,18 +2,6 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/api/student-ai",
-      "destination": "/api/student-ai.ts"
-    },
-    {
-      "source": "/api/teacher-ai",
-      "destination": "/api/teacher-ai.ts"
-    },
-    {
-      "source": "/api/health",
-      "destination": "/api/health.ts"
-    },
-    {
       "source": "/api/(.*)",
       "destination": "/api/index.ts"
     },

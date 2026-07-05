@@ -63,6 +63,7 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [results, setResults] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Filter states
@@ -218,6 +219,76 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
     } catch (err) {
       console.error("Error loading admin datasets:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Student Messages Management Actions
+  const handleToggleMessageSelect = (id: string) => {
+    setSelectedMessageIds(prev =>
+      prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAllMessages = () => {
+    if (selectedMessageIds.length === messages.length) {
+      setSelectedMessageIds([]);
+    } else {
+      setSelectedMessageIds(messages.map(msg => msg.id));
+    }
+  };
+
+  const handleDeleteSelectedMessages = async () => {
+    if (selectedMessageIds.length === 0) return;
+    if (!confirm(`هل أنت متأكد من رغبتك في حذف ${selectedMessageIds.length} رسالة محددة؟`)) return;
+    
+    try {
+      setLoading(true);
+      await Promise.all(
+        selectedMessageIds.map(id => deleteDoc(doc(db, 'messages', id)))
+      );
+      setSelectedMessageIds([]);
+      await fetchAdminData();
+      alert("تم حذف الرسائل المحددة بنجاح!");
+    } catch (err) {
+      console.error("Error deleting messages:", err);
+      alert("حدث خطأ أثناء محاولة حذف بعض الرسائل.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSingleMessage = async (id: string) => {
+    if (!confirm("هل أنت متأكد من رغبتك في حذف هذه الرسالة؟")) return;
+    try {
+      setLoading(true);
+      await deleteDoc(doc(db, 'messages', id));
+      setSelectedMessageIds(prev => prev.filter(mid => mid !== id));
+      await fetchAdminData();
+      alert("تم حذف الرسالة بنجاح!");
+    } catch (err) {
+      console.error("Error deleting message:", err);
+      alert("حدث خطأ أثناء محاولة حذف الرسالة.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleStudentBan = async (studentId: string, currentBanStatus: boolean) => {
+    const actionText = currentBanStatus ? "إلغاء حظر" : "حظر";
+    if (!confirm(`هل أنت متأكد من رغبتك في ${actionText} هذا الطالب؟`)) return;
+    
+    try {
+      setLoading(true);
+      await updateDoc(doc(db, 'students', studentId), {
+        is_banned: !currentBanStatus
+      });
+      alert(`تم ${currentBanStatus ? "إلغاء حظر" : "حظر"} الطالب بنجاح!`);
+      await fetchAdminData();
+    } catch (err) {
+      console.error("Error toggling student ban status:", err);
+      alert("حدث خطأ أثناء محاولة تعديل حالة الحظر.");
     } finally {
       setLoading(false);
     }
@@ -851,21 +922,42 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
                             </>
                           ) : (
                             <>
-                              <td className="p-4 text-white uppercase">{s.name}</td>
+                              <td className="p-4 text-white uppercase">
+                                <div className="flex items-center gap-2">
+                                  <span>{s.name}</span>
+                                  {s.is_banned && (
+                                    <span className="bg-red-950/80 border border-red-700 text-red-400 text-[10px] px-2 py-0.5 rounded-md font-black animate-pulse">
+                                      محظور 🛑
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
                               <td className="p-4 font-mono text-cyan-400">{s.password || 'بلا كلمة مرور'}</td>
                               <td className="p-4 text-gray-400 font-mono">{s.phone}</td>
                               <td className="p-4 text-gray-300">{s.class_name}</td>
                               <td className="p-4 text-gray-300">{s.group_name}</td>
                               <td className="p-4 text-center">
-                                <button 
-                                  onClick={() => {
-                                    setEditingStudent(s.id);
-                                    setEditStudentData(s);
-                                  }} 
-                                  className="text-gray-400 hover:text-white transition"
-                                >
-                                  تعديل
-                                </button>
+                                <div className="flex items-center justify-center gap-3">
+                                  <button 
+                                    onClick={() => {
+                                      setEditingStudent(s.id);
+                                      setEditStudentData(s);
+                                    }} 
+                                    className="text-gray-400 hover:text-white transition"
+                                  >
+                                    تعديل
+                                  </button>
+                                  <button
+                                    onClick={() => handleToggleStudentBan(s.id, !!s.is_banned)}
+                                    className={`text-xs px-2.5 py-1 rounded-xl border font-black transition ${
+                                      s.is_banned 
+                                        ? "bg-green-950/40 border-green-800 text-green-400 hover:bg-green-900/60" 
+                                        : "bg-red-950/40 border-red-900 text-red-400 hover:bg-red-900/60"
+                                    }`}
+                                  >
+                                    {s.is_banned ? "إلغاء الحظر" : "حظر"}
+                                  </button>
+                                </div>
                               </td>
                             </>
                           )}
@@ -1540,49 +1632,104 @@ export default function AdminDashboard({ onLogout }: AdminDashboardProps) {
           {/* Tab: Messages */}
           {activeTab === 'messages' && (
             <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6">
-              <h2 className="text-2xl font-black text-white italic tracking-widest uppercase mb-6 flex items-center gap-2">
-                <span className="bg-rose-600 w-2 h-8 block"></span>
-                رسائل الطلاب (السرية والعلنية)
-              </h2>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-gray-800 pb-4">
+                <h2 className="text-2xl font-black text-white italic tracking-widest uppercase flex items-center gap-2">
+                  <span className="bg-rose-600 w-2 h-8 block"></span>
+                  رسائل الطلاب والإنذارات الحية
+                </h2>
+                
+                {messages.length > 0 && (
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <button
+                      onClick={handleToggleSelectAllMessages}
+                      className="bg-gray-800 hover:bg-gray-750 text-white font-bold px-4 py-2 rounded-xl text-xs transition border border-gray-700 flex items-center gap-1.5"
+                    >
+                      {selectedMessageIds.length === messages.length ? "إلغاء تحديد الكل" : "تحديد الكل"}
+                    </button>
+                    {selectedMessageIds.length > 0 && (
+                      <button
+                        onClick={handleDeleteSelectedMessages}
+                        className="bg-red-600 hover:bg-red-500 text-white font-black px-4 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-red-600/10"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        حذف المحدد ({selectedMessageIds.length})
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className="space-y-4">
                 {messages.length === 0 ? (
                   <div className="text-center py-10 text-gray-500 font-bold">لا توجد رسائل حالياً.</div>
                 ) : (
-                  messages.map(msg => (
-                    <div key={msg.id} className="bg-black/50 border border-gray-800 p-6 rounded-2xl flex flex-col relative overflow-hidden">
-                      {msg.is_anonymous && (
-                        <div className="absolute top-0 right-0 bg-gray-800 text-gray-300 text-[10px] font-black px-3 py-1 rounded-bl-xl border-b border-l border-gray-700">
-                          مجهول
+                  messages.map(msg => {
+                    const isSelected = selectedMessageIds.includes(msg.id);
+                    return (
+                      <div
+                        key={msg.id}
+                        onClick={() => handleToggleMessageSelect(msg.id)}
+                        className={`cursor-pointer transition duration-300 bg-black/50 border rounded-2xl p-6 flex flex-col md:flex-row gap-4 items-start relative overflow-hidden ${
+                          isSelected ? 'border-rose-500 bg-rose-950/10' : 'border-gray-800 hover:border-gray-700'
+                        }`}
+                      >
+                        {/* Selection Checkbox */}
+                        <div className="flex items-center justify-center shrink-0 mt-1 md:mt-2">
+                          <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                            isSelected ? 'bg-rose-600 border-rose-500 text-white scale-110' : 'border-gray-700 bg-black/50'
+                          }`}>
+                            {isSelected && <Check className="w-4 h-4" />}
+                          </div>
                         </div>
-                      )}
-                      {!msg.is_anonymous && (
-                        <div className="absolute top-0 right-0 bg-sky-900/50 text-sky-300 text-[10px] font-black px-3 py-1 rounded-bl-xl border-b border-l border-sky-800">
-                          باسم الطالب
-                        </div>
-                      )}
-                      
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="text-right">
-                          <span className={`block font-black text-lg ${msg.is_anonymous ? 'text-gray-400' : 'text-white'}`}>
-                            {msg.student_name}
-                          </span>
-                          {!msg.is_anonymous && (
-                            <span className="text-xs text-sky-400 font-mono block mt-1">{msg.student_code} | {msg.class_name}</span>
+
+                        {/* Message content */}
+                        <div className="flex-1 text-right w-full">
+                          {msg.is_anonymous && (
+                            <div className="absolute top-0 left-12 bg-gray-800 text-gray-300 text-[10px] font-black px-3 py-1 rounded-b-xl border-l border-r border-b border-gray-700">
+                              مجهول
+                            </div>
                           )}
+                          {!msg.is_anonymous && (
+                            <div className="absolute top-0 left-12 bg-sky-900/40 text-sky-300 text-[10px] font-black px-3 py-1 rounded-b-xl border-l border-r border-b border-sky-800">
+                              باسم الطالب
+                            </div>
+                          )}
+
+                          {/* Instant single delete button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSingleMessage(msg.id);
+                            }}
+                            className="absolute left-3 top-3 p-2 rounded-lg bg-gray-900/60 hover:bg-red-600/20 text-gray-500 hover:text-red-500 border border-gray-800/80 hover:border-red-900/50 transition"
+                            title="حذف الرسالة"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          
+                          <div className="flex justify-between items-start mb-4 pr-1">
+                            <div className="text-right">
+                              <span className={`block font-black text-lg ${msg.is_anonymous ? 'text-gray-400' : 'text-white'}`}>
+                                {msg.student_name}
+                              </span>
+                              {!msg.is_anonymous && (
+                                <span className="text-xs text-sky-400 font-mono block mt-1">{msg.student_code} | {msg.class_name}</span>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-500 font-bold ml-12" dir="ltr">
+                              {new Date(msg.timestamp).toLocaleString('ar-EG')}
+                            </span>
+                          </div>
+                          
+                          <div className="bg-gray-850 p-4 rounded-xl border border-gray-800 text-right">
+                            <p className="text-gray-200 text-sm whitespace-pre-wrap leading-relaxed font-semibold">
+                              {msg.text}
+                            </p>
+                          </div>
                         </div>
-                        <span className="text-xs text-gray-500 font-bold" dir="ltr">
-                          {new Date(msg.timestamp).toLocaleString('ar-EG')}
-                        </span>
                       </div>
-                      
-                      <div className="bg-gray-800/40 p-4 rounded-xl border border-gray-700/50">
-                        <p className="text-gray-200 text-right whitespace-pre-wrap leading-relaxed font-semibold">
-                          {msg.text}
-                        </p>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

@@ -32,5 +32,21 @@ service cloud.firestore {
     match /videos/{videoId}/{allPaths=**} {
       allow read, write: if true;
     }
+
+    // Messages collection and subcollections
+    match /messages/{messageId} {
+      allow read, write: if true;
+    }
+    match /messages/{messageId}/{allPaths=**} {
+      allow read, write: if true;
+    }
+
+    // Grade chats collection
+    match /grade_chats/{chatId} {
+      allow read, write: if true;
+    }
+    match /grade_chats/{chatId}/{allPaths=**} {
+      allow read, write: if true;
+    }
   }
 }

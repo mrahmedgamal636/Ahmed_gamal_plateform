@@ -11,7 +11,9 @@ import {
   updateDoc,
   serverTimestamp, 
   orderBy,
-  limit
+  limit,
+  onSnapshot,
+  deleteDoc
 } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -45,6 +47,93 @@ import CryptoJS from 'crypto-js';
 
 const SECRET_KEY = "JamalAcademy_Secret_2026";
 
+export function checkProfanity(text: string): { isBad: boolean; matchedWord?: string } {
+  if (!text) return { isBad: false };
+  
+  const clean = text.toLowerCase();
+  
+  const removeDiacritics = (str: string) => str.replace(/[\u064B-\u0652]/g, "").replace(/\u0640/g, "");
+  const normArabic = (str: string) => {
+    let s = removeDiacritics(str);
+    s = s.replace(/[أإآٱ]/g, "ا");
+    s = s.replace(/ة/g, "ه");
+    s = s.replace(/ى/g, "ي");
+    s = s.replace(/[ؤئ]/g, "ء");
+    return s;
+  };
+
+  const normalizedWithSpaces = normArabic(clean);
+  const normalizedNoSpaces = normalizedWithSpaces.replace(/\s+/g, "");
+
+  // Base Egyptian bad words (normalized)
+  const badWords = [
+    "كس", "طيز", "زب", "خول", "عرص", "ديوث", "قحبه", "شرموطه", "شرموط", "شراميط",
+    "متناك", "منيوك", "منيك", "تناكه", "بضين", "بضان", "اهبل", "غبي", "ابنالكلب"
+  ];
+  
+  // Exact bad phrases to check in no-space text
+  const badPhrasesNoSpaces = [
+    "ابنالمتناكه", "ابنالشرموطه", "ابنالاحبه", "ابنالوسخه", "ابنالمتناكة", "ابنالشرموطة", "ابنالوسخة",
+    "كسمك", "كسختك", "طيزك", "امكالساقطه", "يلعنامك", "يلعنابوك", "كسختك", "كسمينامك", "كسخاله", "كسعمه"
+  ];
+
+  for (const phrase of badPhrasesNoSpaces) {
+    if (normalizedNoSpaces.includes(phrase)) {
+      return { isBad: true, matchedWord: phrase };
+    }
+  }
+
+  const words = normalizedWithSpaces.split(/[\s\d\p{P}\p{S}]+/u).filter(Boolean);
+  
+  for (const word of words) {
+    for (const bad of badWords) {
+      if (bad === "زب") {
+        if (word === "زب" || word === "زبك" || word === "زبي" || word === "زبه" || word === "الزب" || word === "الزبك" || word === "الزبي") {
+          return { isBad: true, matchedWord: "زب" };
+        }
+      } else if (bad === "كس") {
+        if (word === "كس" || word === "كسك" || word === "كسمك" || word === "كسم" || word === "كسها" || word === "الكس" || word === "كسه" || word === "كسمك" || word === "كسمكم" || word === "كسختك") {
+          return { isBad: true, matchedWord: "كس" };
+        }
+      } else if (bad === "طيز") {
+        if (word.includes("طيز")) {
+          return { isBad: true, matchedWord: "طيز" };
+        }
+      } else if (bad === "خول") {
+        if (word === "خول" || word === "خوال" || word === "الخول" || word === "خولنه") {
+          return { isBad: true, matchedWord: "خول" };
+        }
+      } else if (bad === "عرص") {
+        if (word.includes("عرص")) {
+          return { isBad: true, matchedWord: "عرص" };
+        }
+      } else if (bad === "شرموطه" || bad === "شرموط") {
+        if (word.includes("شرموط") || word.includes("شراميط")) {
+          return { isBad: true, matchedWord: "شرموطة" };
+        }
+      } else if (bad === "متناك" || bad === "منيوك" || bad === "منيك") {
+        if (word.includes("متناك") || word.includes("منيوك") || word.includes("منيك") || word.includes("تناك")) {
+          return { isBad: true, matchedWord: "متناك" };
+        }
+      } else if (bad === "قحبه") {
+        if (word.includes("قحب")) {
+          return { isBad: true, matchedWord: "قحبة" };
+        }
+      } else if (bad === "ديوث") {
+        if (word.includes("ديوث")) {
+          return { isBad: true, matchedWord: "ديوث" };
+        }
+      } else {
+        if (word === bad || (bad.length > 3 && word.includes(bad))) {
+          return { isBad: true, matchedWord: bad };
+        }
+      }
+    }
+  }
+
+  return { isBad: false };
+}
+
 interface StudentDashboardProps {
   onLogout: () => void;
   currentTheme?: 'marvel' | 'space' | 'matrix';
@@ -74,7 +163,7 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
   const [selectedAvatar, setSelectedAvatar] = useState<string>('spiderman');
 
   // App Tabs
-  const [activeTab, setActiveTab] = useState<'home' | 'missions' | 'lectures' | 'friday' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'missions' | 'lectures' | 'friday' | 'profile' | 'community'>('home');
 
   // Real data state
   const [quizzes, setQuizzes] = useState<any[]>([]);
@@ -113,6 +202,56 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Community Chat state
+  const [communityMessages, setCommunityMessages] = useState<any[]>([]);
+  const [communityInput, setCommunityInput] = useState('');
+  const [isSendingCommunityMessage, setIsSendingCommunityMessage] = useState(false);
+  const communityEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Subscribe to real-time community chat for student's grade
+  useEffect(() => {
+    if (!student || activeTab !== 'community') return;
+    
+    const className = student.className;
+    
+    // Subscribe to messages in this class grade
+    const q = query(
+      collection(db, 'grade_chats'),
+      where('class_name', '==', className)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Sort client-side to avoid needing composite index
+      const msgs = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() as any }))
+        .sort((a, b) => a.timestamp_num - b.timestamp_num);
+        
+      setCommunityMessages(msgs);
+      
+      // Auto-scroll to bottom of live chat
+      setTimeout(() => {
+        communityEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+
+      // Perform hourly/2-hour automatic cleanup of old messages
+      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+      snapshot.docs.forEach(async (docSnap) => {
+        const data = docSnap.data();
+        if (data.timestamp_num && data.timestamp_num < twoHoursAgo) {
+          try {
+            await deleteDoc(doc(db, 'grade_chats', docSnap.id));
+          } catch (e) {
+            console.error("Cleanup old chat error:", e);
+          }
+        }
+      });
+    }, (err) => {
+      console.error("Live community chat subscription error:", err);
+    });
+
+    return () => unsubscribe();
+  }, [student, activeTab]);
+
   // Message to Teacher state
   const [showMessageModal, setShowMessageModal] = useState(false);
   const [messageText, setMessageText] = useState('');
@@ -142,6 +281,87 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
       alert('حدث خطأ أثناء إرسال الرسالة. حاول مرة أخرى.');
     } finally {
       setIsSendingMessage(false);
+    }
+  };
+
+  const handleBanningStudent = async (currStudent: any, triggeredWord: string) => {
+    try {
+      // Find the student document and set is_banned to true
+      const q = query(collection(db, 'students'), where('code', '==', currStudent.code));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const sDoc = snap.docs[0];
+        await updateDoc(doc(db, 'students', sDoc.id), {
+          is_banned: true
+        });
+      }
+
+      // Send automated teacher message notification
+      await addDoc(collection(db, 'messages'), {
+        student_name: "⚠️ نظام الحماية التلقائي (الذكاء الاصطناعي)",
+        student_code: "SYSTEM",
+        class_name: currStudent.className,
+        is_anonymous: false,
+        text: `🚨 تنبيه حظر بطل: تم حظر الطالب "${currStudent.name}" (كود: ${currStudent.code}) تلقائياً ومباشرة من المنصة لمحاولته إرسال كلمة خارجة غير لائقة في شات مجتمع الطلاب.\n\nالكلمة أو المحتوى المكتشف: [ ${triggeredWord} ]\n\nنص الرسالة كاملة: "${triggeredWord}"\n\nتم اتخاذ الإجراء اللازم وإغلاق الحساب في الحال.`,
+        timestamp: new Date().toISOString()
+      });
+
+      // Show alert and logout
+      alert(`🚨 تم حظرك فوراً من المنصة بسبب كتابة كلمات غير لائقة أو خارجة! [ ${triggeredWord} ]\nتم إرسال بلاغ فوري ببياناتك بالكامل لمستر أحمد جمال.`);
+      setStudent(null);
+      localStorage.removeItem('jamal_student');
+    } catch (e) {
+      console.error("Error banning student:", e);
+    }
+  };
+
+  const handleSendCommunityMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!communityInput.trim() || isSendingCommunityMessage) return;
+
+    const rawText = communityInput.trim();
+    setCommunityInput('');
+    setIsSendingCommunityMessage(true);
+
+    try {
+      // 1. Run local Egyptian profanity filter
+      const localCheck = checkProfanity(rawText);
+      if (localCheck.isBad) {
+        await handleBanningStudent(student, localCheck.matchedWord || rawText);
+        setIsSendingCommunityMessage(false);
+        return;
+      }
+
+      // 2. Perform server-side AI check for extra security (phonetic bypass, severe context etc.)
+      const verifyRes = await fetch('/api/verify-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: rawText })
+      });
+      if (verifyRes.ok) {
+        const verifyData = await verifyRes.json();
+        if (verifyData.isBad) {
+          await handleBanningStudent(student, verifyData.matchedWord || rawText);
+          setIsSendingCommunityMessage(false);
+          return;
+        }
+      }
+
+      // 3. Write message to Firestore (this guarantees live chat with no delay because of onSnapshot)
+      await addDoc(collection(db, 'grade_chats'), {
+        class_name: student.className,
+        student_code: student.code,
+        student_name: student.name,
+        avatar: selectedAvatar,
+        text: rawText,
+        timestamp_num: Date.now(),
+        createdAt: new Date().toISOString()
+      });
+
+    } catch (err: any) {
+      console.error("Error sending community message:", err);
+    } finally {
+      setIsSendingCommunityMessage(false);
     }
   };
 
@@ -185,6 +405,20 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
   const fetchStudentData = async (code: string, className: string) => {
     setLoading(true);
     try {
+      // Check if student is banned first
+      const studentQuery = query(collection(db, 'students'), where('code', '==', code));
+      const studentSnap = await getDocs(studentQuery);
+      if (!studentSnap.empty) {
+        const data = studentSnap.docs[0].data();
+        if (data.is_banned) {
+          setStudent(null);
+          localStorage.removeItem('jamal_student');
+          alert('🚨 تم حظر هذا الحساب من المنصة لاستخدام كلمات غير لائقة! يرجى مراجعة مستر أحمد جمال.');
+          setLoading(false);
+          return;
+        }
+      }
+
       // Fetch active quizzes for their class
       const qSnap = await getDocs(query(collection(db, 'quizzes'), where('class_name', '==', className), where('is_active', '==', true)));
       const qList = qSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -258,6 +492,12 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
 
       const studentDoc = studentSnap.docs[0];
       const data = studentDoc.data();
+
+      if (data.is_banned) {
+        setLoginError('🚨 عذراً، تم حظر هذا الحساب من المنصة نهائياً بسبب استخدام كلمات بذيئة وغير لائقة! يرجى مراجعة مستر أحمد جمال.');
+        setIsSubmittingLogin(false);
+        return;
+      }
 
       // Check if student has password in database
       if (data.password) {
@@ -1011,6 +1251,7 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
             { id: 'missions', label: 'الاختبارات', icon: BookOpen },
             { id: 'lectures', label: 'المحاضرات', icon: Play },
             { id: 'friday', label: 'فرايداي AI', icon: Zap },
+            { id: 'community', label: 'مجتمعنا 💬', icon: Users },
             { id: 'profile', label: 'الملف الشخصي', icon: User }
           ].map(tab => {
             const Icon = tab.icon;
@@ -1047,6 +1288,7 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
             { id: 'missions', label: 'الاختبارات', icon: BookOpen },
             { id: 'lectures', label: 'المحاضرات', icon: Play },
             { id: 'friday', label: 'فرايداي AI', icon: Zap },
+            { id: 'community', label: 'مجتمعنا', icon: Users },
             { id: 'profile', label: 'الملف', icon: User }
           ].map(tab => {
             const Icon = tab.icon;
@@ -1876,6 +2118,110 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {activeTab === 'community' && (
+                <div className="bg-gradient-to-b from-gray-950 to-slate-950 border-4 border-black shadow-[8px_8px_0px_#000] rounded-2xl flex flex-col h-[70vh] overflow-hidden">
+                  {/* Header */}
+                  <div className="bg-black/40 border-b border-gray-950 p-4 md:p-5 flex flex-col md:flex-row justify-between items-center gap-3">
+                    <div className="text-right w-full md:w-auto">
+                      <div className="flex items-center gap-2 justify-end">
+                        <span className="inline-flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-xs font-black text-green-400 tracking-wider">LIVE CHAT ONLINE (شات تفاعلي مباشر)</span>
+                      </div>
+                      <h4 className="font-sans font-black text-white text-xl md:text-2xl mt-1">
+                        مجتمع {student?.className} 🛡️
+                      </h4>
+                      <p className="text-xs text-gray-400 mt-1">
+                        تواصل، اسأل زملائك، وتبادل الملاحظات الدراسية مع أبطال دفعتك!
+                      </p>
+                    </div>
+
+                    <div className="bg-rose-950/30 border border-rose-900/60 p-2.5 rounded-xl text-right max-w-sm">
+                      <p className="text-[10px] md:text-xs font-bold text-rose-300 leading-relaxed">
+                        ⚠️ **نظام حماية فائق القوة (AI-Shield):** الشات مراقب ذاتياً بمجسات الذكاء الاصطناعي. أي محاولة لكتابة كلمة بذيئة أو خارجة تؤدي لحظر الحساب تلقائياً وفورياً وإبلاغ مستر أحمد جمال.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Message stream */}
+                  <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-slate-950/20">
+                    {communityMessages.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center space-y-3 p-6">
+                        <div className="bg-gray-900 p-4 rounded-full border border-gray-800">
+                          <MessageCircle className="w-8 h-8 text-gray-500" />
+                        </div>
+                        <h5 className="text-gray-300 font-black text-lg">الشات نظيف تماماً! ✨</h5>
+                        <p className="text-xs text-gray-500 max-w-xs leading-relaxed">
+                          كن أول من يشعل شعلة الحماس ويبدأ النقاش الدراسي مع زملائه في الدفعة بصورة راقية ومفيدة.
+                        </p>
+                      </div>
+                    ) : (
+                      communityMessages.map((msg, index) => {
+                        const isMe = msg.student_code === student?.code;
+                        const avatarEmoji = 
+                          msg.avatar === 'spiderman' ? '🕸️' :
+                          msg.avatar === 'ironman' ? '🦾' :
+                          msg.avatar === 'captainamerica' ? '🛡️' :
+                          msg.avatar === 'thor' ? '⚡' :
+                          msg.avatar === 'blackwidow' ? '🕷️' :
+                          msg.avatar === 'hulk' ? '🟢' : '👤';
+
+                        const bubbleBg = isMe 
+                          ? 'bg-rose-600 text-white border-rose-500 shadow-[2px_2px_0px_#000]' 
+                          : 'bg-white/5 text-gray-100 border-gray-800 shadow-[2px_2px_0px_#000]';
+
+                        return (
+                          <div
+                            key={msg.id || index}
+                            className={`flex items-start gap-2.5 max-w-[85%] md:max-w-[70%] ${isMe ? 'mr-auto flex-row-reverse' : 'ml-auto'}`}
+                          >
+                            <div className="h-10 w-10 rounded-xl bg-black border-2 border-gray-800 flex items-center justify-center text-xl shadow-md shrink-0">
+                              {avatarEmoji}
+                            </div>
+                            <div className="space-y-1 text-right">
+                              <div className="flex items-center gap-2 justify-end">
+                                <span className="text-[10px] text-gray-500 font-bold">
+                                  {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                </span>
+                                <span className={`text-xs font-black ${isMe ? 'text-rose-400' : 'text-sky-400'}`}>
+                                  {msg.student_name}
+                                </span>
+                              </div>
+                              <div className={`p-3 rounded-2xl text-sm leading-relaxed border ${bubbleBg}`}>
+                                <p className="font-sans font-bold select-text whitespace-pre-wrap">{msg.text}</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    <div ref={communityEndRef} />
+                  </div>
+
+                  {/* Input panel */}
+                  <form onSubmit={handleSendCommunityMessage} className="p-4 bg-black border-t border-gray-900 flex gap-2">
+                    <input
+                      type="text"
+                      className="flex-1 bg-white/5 border-2 border-gray-800 focus:border-rose-500 text-white font-bold p-3 rounded-xl outline-none transition text-right placeholder-gray-500 text-sm md:text-base"
+                      placeholder="اكتب رسالة محترمة ومفيدة لزملائك في الدفعة..."
+                      value={communityInput}
+                      onChange={e => setCommunityInput(e.target.value)}
+                      disabled={isSendingCommunityMessage}
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSendingCommunityMessage || !communityInput.trim()}
+                      className="bg-rose-600 hover:bg-rose-500 disabled:bg-gray-800 disabled:text-gray-500 p-3 rounded-xl text-white font-black transition flex items-center justify-center shadow-lg shrink-0"
+                    >
+                      {isSendingCommunityMessage ? (
+                        <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Send className="w-5 h-5 transform rotate-180" />
+                      )}
+                    </button>
+                  </form>
                 </div>
               )}
             </div>

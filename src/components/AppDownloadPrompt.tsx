@@ -23,18 +23,12 @@ export default function AppDownloadPrompt() {
     setChecked(true);
 
     if (!webViewDetected) {
-      // It's a standard web browser
-      const isPopupDismissed = sessionStorage.getItem('dismissed_apk_popup') === 'true';
-      if (!isPopupDismissed) {
-        setShowPopup(true);
-      } else {
-        setShowBanner(true);
-      }
+      // It's a standard web browser - always show the popup on refresh/load
+      setShowPopup(true);
     }
   }, []);
 
   const handleDismissPopup = () => {
-    sessionStorage.setItem('dismissed_apk_popup', 'true');
     setShowPopup(false);
     setShowBanner(true);
   };

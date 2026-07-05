@@ -4,6 +4,7 @@ import SpaceBackground from './components/SpaceBackground';
 import MatrixBackground from './components/MatrixBackground';
 import StudentDashboard from './components/StudentDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import AppDownloadPrompt from './components/AppDownloadPrompt';
 
 export default function App() {
   const [portal, setPortal] = useState<'student' | 'admin'>('student');
@@ -36,13 +37,13 @@ export default function App() {
 
   const handleAdminLogout = () => {
     localStorage.removeItem('jamal_admin_auth');
-    // Clear admin query params from URL safely
+    // Keep or set the admin query param so we always stay on the admin panel login screen
     const url = new URL(window.location.href);
-    url.searchParams.delete('admin');
+    url.searchParams.set('admin', 'true');
     url.searchParams.delete('role');
     url.searchParams.delete('portal');
     window.history.replaceState({}, '', url.toString());
-    setPortal('student');
+    setPortal('admin');
   };
 
   const handleStudentLogout = () => {
@@ -55,6 +56,8 @@ export default function App() {
       {theme === 'marvel' && <MarvelBackground />}
       {theme === 'space' && <SpaceBackground />}
       {theme === 'matrix' && <MatrixBackground />}
+      
+      {portal === 'student' && <AppDownloadPrompt />}
       
       {portal === 'student' && (
         <StudentDashboard onLogout={handleStudentLogout} currentTheme={theme} onThemeChange={handleThemeChange} />

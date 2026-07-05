@@ -82,6 +82,36 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["role", "content", "timestamp"]
+    },
+    "teacher_message": {
+      "title": "TeacherMessage",
+      "description": "Messages sent to the teacher (anonymous or signed)",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "student_id": { "type": "string" },
+        "student_name": { "type": "string" },
+        "student_code": { "type": "string" },
+        "class_name": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "is_anonymous": { "type": "boolean" }
+      },
+      "required": ["text", "student_name", "student_code", "class_name", "timestamp", "is_anonymous"]
+    },
+    "grade_chat": {
+      "title": "GradeChat",
+      "description": "Live community chat messages within a student's grade class",
+      "type": "object",
+      "properties": {
+        "class_name": { "type": "string" },
+        "student_code": { "type": "string" },
+        "student_name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp_num": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_name", "student_code", "student_name", "text", "timestamp_num", "createdAt"]
     }
   },
   "firestore": {
@@ -108,6 +138,14 @@
     "/students/{studentId}/chat/{messageId}": {
       "schema": "chat_message",
       "description": "Student AI chat logs"
+    },
+    "/messages/{messageId}": {
+      "schema": "teacher_message",
+      "description": "Messages and alerts for the teacher"
+    },
+    "/grade_chats/{chatId}": {
+      "schema": "grade_chat",
+      "description": "Live community chat messages for students"
     }
   }
 }

@@ -40,7 +40,9 @@ import {
   Sparkles,
   Home,
   MessageCircle,
-  Palette
+  Palette,
+  Eye,
+  Check
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import CryptoJS from 'crypto-js';
@@ -169,6 +171,7 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
   const [studentResults, setStudentResults] = useState<any[]>([]);
+  const [inspectingResult, setInspectingResult] = useState<any | null>(null);
   
   // Active Exam state
   const [activeQuiz, setActiveQuiz] = useState<any>(null);
@@ -688,6 +691,17 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
       }
     });
 
+    const answersList = quizQuestions.map(q => ({
+      question_id: q.id,
+      question_text: q.question_text,
+      choice_a: q.choice_a,
+      choice_b: q.choice_b,
+      choice_c: q.choice_c,
+      choice_d: q.choice_d,
+      correct_answer: q.correct_answer,
+      student_answer: selectedAnswers[q.id] || ''
+    }));
+
     try {
       // Save result to Firestore
       const resultData = {
@@ -700,7 +714,8 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
         quiz_name: activeQuiz.quiz_name,
         score: score,
         total_questions: quizQuestions.length,
-        submittedAt: new Date().toISOString()
+        submittedAt: new Date().toISOString(),
+        answers: answersList
       };
 
       await addDoc(collection(db, 'results'), resultData);
@@ -1499,6 +1514,162 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
           )}
         </AnimatePresence>
 
+        {/* Detailed Results & Corrections Modal */}
+        <AnimatePresence>
+          {inspectingResult && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 md:p-6"
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 20 }}
+                className="bg-gradient-to-br from-gray-950 to-slate-900 border-4 border-black shadow-[8px_8px_0px_#000] w-full max-w-3xl max-h-[85vh] rounded-2xl flex flex-col overflow-hidden text-right"
+              >
+                {/* Modal Header */}
+                <div className="bg-black/50 border-b border-gray-800 p-5 flex justify-between items-center">
+                  <button
+                    onClick={() => setInspectingResult(null)}
+                    className="bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white p-2 rounded-lg transition"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                  <div>
+                    <h3 className="font-sans font-black text-white text-xl tracking-wide">
+                      {inspectingResult.quiz_name}
+                    </h3>
+                    <p className="text-xs text-gray-400 mt-1">
+                      تفاصيل الإجابات ومراجعة الأخطاء لتنمية مهارتك
+                    </p>
+                  </div>
+                </div>
+
+                {/* Score Summary Box */}
+                <div className="bg-slate-950/40 p-5 border-b border-gray-900 flex flex-col sm:flex-row-reverse sm:items-center sm:justify-between gap-4">
+                  <div className="text-right">
+                    <span className="text-xs text-gray-500 block">SCORE ACHIEVEMENT</span>
+                    <span className="text-3xl font-mono font-black text-rose-500 block">
+                      {inspectingResult.score} / {inspectingResult.total_questions} PTS
+                    </span>
+                    <span className="text-xs text-emerald-400 font-bold block mt-1">
+                      نسبة النجاح: {Math.round((inspectingResult.score / inspectingResult.total_questions) * 100)}%
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-gray-500 block">STUDENT PROFILE</span>
+                    <span className="text-sm font-bold text-white block mt-0.5">البطل: {inspectingResult.student_name}</span>
+                    <span className="text-xs text-gray-400 block mt-0.5">الكود: {inspectingResult.student_code}</span>
+                  </div>
+                </div>
+
+                {/* Questions List */}
+                <div className="flex-1 overflow-y-auto p-5 space-y-6">
+                  {!inspectingResult.answers || inspectingResult.answers.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500 font-bold">
+                      ⚠️ لم يتم العثور على سجل إجابات تفصيلي لهذا الامتحان. قد يكون هذا الاختبار قد تم تقديمه قبل تفعيل ميزة حفظ الإجابات.
+                    </div>
+                  ) : (
+                    inspectingResult.answers.map((ans: any, qIdx: number) => {
+                      const isCorrect = ans.student_answer === ans.correct_answer;
+                      return (
+                        <div
+                          key={qIdx}
+                          className={`p-5 rounded-xl border-2 text-right ${
+                            isCorrect 
+                              ? 'bg-emerald-950/10 border-emerald-900/40 shadow-[4px_4px_0px_#064e3b]' 
+                              : 'bg-rose-950/10 border-rose-900/40 shadow-[4px_4px_0px_#881337]'
+                          }`}
+                        >
+                          <div className="flex flex-row-reverse justify-between items-start gap-3 mb-4">
+                            <div className="flex-1">
+                              <span className="text-xs text-gray-500 font-bold block mb-1">السؤال {qIdx + 1}</span>
+                              <h4 className="text-md font-black text-white leading-relaxed">
+                                {ans.question_text}
+                              </h4>
+                            </div>
+                            <span className={`px-3 py-1 rounded-lg text-xs font-black border uppercase flex items-center gap-1 shrink-0 ${
+                              isCorrect 
+                                ? 'bg-emerald-950/40 text-emerald-400 border-emerald-800/60' 
+                                : 'bg-rose-950/40 text-rose-400 border-rose-800/60'
+                            }`}>
+                              {isCorrect ? 'إجابة صحيحة ✓' : 'إجابة خاطئة ✗'}
+                            </span>
+                          </div>
+
+                          {/* Choices */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[
+                              { label: 'A', text: ans.choice_a },
+                              { label: 'B', text: ans.choice_b },
+                              { label: 'C', text: ans.choice_c },
+                              { label: 'D', text: ans.choice_d }
+                            ].map((choice) => {
+                              const isChoiceSelected = ans.student_answer === choice.label;
+                              const isChoiceCorrect = ans.correct_answer === choice.label;
+                              
+                              let choiceStyle = 'bg-black/30 border-gray-800 text-gray-300';
+                              if (isChoiceCorrect) {
+                                choiceStyle = 'bg-emerald-950/30 border-emerald-700/80 text-emerald-300';
+                              } else if (isChoiceSelected) {
+                                choiceStyle = 'bg-rose-950/30 border-rose-700/80 text-rose-300';
+                              }
+
+                              return (
+                                <div
+                                  key={choice.label}
+                                  className={`p-3 rounded-lg border flex items-center justify-between gap-2 text-right ${choiceStyle}`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {isChoiceCorrect && (
+                                      <span className="bg-emerald-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded uppercase">
+                                        الصحيحة
+                                      </span>
+                                    )}
+                                    {isChoiceSelected && (
+                                      <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
+                                        isCorrect ? 'bg-emerald-500 text-black' : 'bg-rose-500 text-white'
+                                      }`}>
+                                        إجابتك
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-sm font-bold flex-1 pr-2">{choice.text}</span>
+                                  <span className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-black shrink-0 font-mono ${
+                                    isChoiceCorrect 
+                                      ? 'bg-emerald-500 text-black' 
+                                      : isChoiceSelected 
+                                        ? 'bg-rose-500 text-white' 
+                                        : 'bg-white/10 text-gray-400'
+                                  }`}>
+                                    {choice.label}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="bg-black/40 border-t border-gray-800 p-4 flex justify-center">
+                  <button
+                    onClick={() => setInspectingResult(null)}
+                    className="bg-red-600 hover:bg-red-500 text-white font-bold text-sm px-8 py-2.5 rounded-xl border-2 border-red-500 shadow-[3px_3px_0px_#000] transition cursor-pointer"
+                  >
+                    إغلاق المراجعة
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Dashboard layout with 2 grid columns */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
@@ -1768,19 +1939,44 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {studentResults.map((r: any, idx) => (
-                          <div key={idx} className="bg-white/5 border border-gray-800 p-4 rounded-xl flex items-center justify-between">
-                            <div className="text-right">
-                              <span className="text-md font-bold text-white block">{r.quiz_name}</span>
-                              <span className="text-xs text-gray-500 block mt-1">
-                                {new Date(r.submittedAt).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}
-                              </span>
+                        {studentResults.map((r: any, idx) => {
+                          const submissionTime = r.submittedAt ? new Date(r.submittedAt).getTime() : 0;
+                          const currentTime = new Date().getTime();
+                          const thirtyMinutesInMs = 30 * 60 * 1000;
+                          const timePassed = currentTime - submissionTime;
+                          const isEligible = timePassed >= thirtyMinutesInMs;
+                          const remainingMin = Math.ceil((thirtyMinutesInMs - timePassed) / (60 * 1000));
+
+                          return (
+                            <div key={idx} className="bg-white/5 border border-gray-800 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div className="text-right">
+                                <span className="text-md font-bold text-white block">{r.quiz_name}</span>
+                                <span className="text-xs text-gray-500 block mt-1">
+                                  {r.submittedAt ? new Date(r.submittedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {isEligible ? (
+                                  <button
+                                    onClick={() => setInspectingResult(r)}
+                                    className="bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg border border-sky-500 transition cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    عرض الإجابات والتصحيح
+                                  </button>
+                                ) : (
+                                  <span className="bg-gray-900 border border-gray-800 text-gray-400 font-bold text-[10px] px-2.5 py-1.5 rounded-lg flex items-center gap-1">
+                                    <Clock className="w-3.5 h-3.5 animate-pulse text-yellow-500" />
+                                    متاح بعد {remainingMin} د
+                                  </span>
+                                )}
+                                <span className="bg-rose-950/40 border border-rose-900/60 text-rose-400 px-3 py-1.5 rounded-lg font-mono font-black text-xs">
+                                  {r.score} / {r.total_questions} PTS
+                                </span>
+                              </div>
                             </div>
-                            <span className="bg-rose-950/40 border border-rose-900/60 text-rose-400 px-4 py-2 rounded-xl font-mono font-black">
-                              {r.score} / {r.total_questions} PTS
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -2095,6 +2291,14 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
                             reaction = 'BOOM! SOLID EFFORT 🔵';
                             reactionColor = 'bg-sky-950/40 text-sky-400 border-sky-800/60';
                           }
+
+                          const submissionTime = r.submittedAt ? new Date(r.submittedAt).getTime() : 0;
+                          const currentTime = new Date().getTime();
+                          const thirtyMinutesInMs = 30 * 60 * 1000;
+                          const timePassed = currentTime - submissionTime;
+                          const isEligible = timePassed >= thirtyMinutesInMs;
+                          const remainingMin = Math.ceil((thirtyMinutesInMs - timePassed) / (60 * 1000));
+
                           return (
                             <div key={r.id} className="bg-black/40 border border-gray-800/80 p-4 rounded-xl flex flex-col md:flex-row justify-between items-end md:items-center gap-4 text-right">
                               <div className="w-full md:w-auto">
@@ -2103,14 +2307,30 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
                                 </span>
                                 <h5 className="text-lg font-black text-white mt-1">{r.quiz_name}</h5>
                                 <span className="text-xs text-gray-500 block mt-0.5">
-                                  تم التسليم في: {new Date(r.submittedAt).toLocaleDateString('ar-EG')}
+                                  تم التسليم في: {r.submittedAt ? new Date(r.submittedAt).toLocaleString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
                                 </span>
                               </div>
-                              <div className="text-left">
-                                <span className="text-xs text-gray-500 block mb-1">GRADE ACHIEVED</span>
-                                <span className="text-2xl font-mono font-black text-rose-500">
-                                  {r.score} / {r.total_questions} PTS
-                                </span>
+                              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+                                {isEligible ? (
+                                  <button
+                                    onClick={() => setInspectingResult(r)}
+                                    className="bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl border border-sky-500 transition cursor-pointer flex items-center gap-1.5"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    تصحيح الأخطاء
+                                  </button>
+                                ) : (
+                                  <span className="bg-gray-900 border border-gray-800 text-gray-400 font-bold text-[10px] px-3 py-2 rounded-xl flex items-center gap-1.5">
+                                    <Clock className="w-4 h-4 animate-pulse text-yellow-500" />
+                                    التفاصيل بعد {remainingMin} د
+                                  </span>
+                                )}
+                                <div className="text-left">
+                                  <span className="text-xs text-gray-500 block mb-1">GRADE ACHIEVED</span>
+                                  <span className="text-2xl font-mono font-black text-rose-500">
+                                    {r.score} / {r.total_questions} PTS
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           );

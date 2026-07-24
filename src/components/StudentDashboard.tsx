@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { CustomShieldedVideoPlayer } from './CustomShieldedVideoPlayer';
 import { db } from '../lib/firebase';
 import { 
   collection, 
@@ -1471,44 +1472,21 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
           )}
         </AnimatePresence>
 
-        {/* Video Player overlay */}
+        {/* Custom Shielded Video Player overlay */}
         <AnimatePresence>
           {activeVideo && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-0 md:p-6"
+              className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-2 md:p-6"
             >
-              <div 
-                className={`bg-black overflow-hidden relative flex flex-col w-full max-w-5xl md:rounded-xl border-4 border-sky-500 shadow-[0_0_50px_rgba(14,165,233,0.5)] ${
-                  isFakeFullscreen ? 'fixed inset-0 z-[99999] max-w-none border-none rounded-none' : ''
-                }`}
-              >
-                {/* Video Container header */}
-                <div className="flex justify-between items-center p-4 border-b border-gray-800 bg-gray-950 z-20">
-                  <h4 className="text-lg md:text-xl font-black text-white truncate">
-                    {activeVideo.title}
-                  </h4>
-                  <button 
-                    onClick={() => setActiveVideo(null)}
-                    className="text-gray-400 hover:text-white p-1 rounded-full border border-gray-800 transition"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* iframe player */}
-                <div className="relative aspect-video flex-1 bg-black">
-                  <iframe
-                    ref={videoPlayerRef}
-                    className="w-full h-full"
-                    src={`https://www.youtube.com/embed/${activeVideo.youtube_url.includes('v=') ? activeVideo.youtube_url.split('v=')[1].split('&')[0] : activeVideo.youtube_url.split('/').pop()}?autoplay=1&controls=1&rel=0&modestbranding=1`}
-                    title={activeVideo.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
+              <div className="w-full max-w-5xl">
+                <CustomShieldedVideoPlayer
+                  url={activeVideo.youtube_url}
+                  title={activeVideo.title}
+                  onClose={() => setActiveVideo(null)}
+                />
               </div>
             </motion.div>
           )}

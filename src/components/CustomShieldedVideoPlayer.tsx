@@ -80,6 +80,7 @@ export const CustomShieldedVideoPlayer: React.FC<CustomShieldedVideoPlayerProps>
   const [showControls, setShowControls] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
+  const [hasStarted, setHasStarted] = useState<boolean>(false);
   const [quality, setQuality] = useState<string>('HD');
   const [centerRipple, setCenterRipple] = useState<'play' | 'pause' | 'forward' | 'backward' | null>(null);
   const [needsUserTouchToPlay, setNeedsUserTouchToPlay] = useState<boolean>(false);
@@ -134,27 +135,22 @@ export const CustomShieldedVideoPlayer: React.FC<CustomShieldedVideoPlayerProps>
               try {
                 const dur = event.target.getDuration() || 0;
                 if (dur > 0) setDuration(dur);
-                
-                // Attempt play; if mobile policy blocks it, flag for touch
-                const playPromise = event.target.playVideo();
-                if (playPromise && typeof playPromise.catch === 'function') {
-                  playPromise.catch(() => {
-                    setNeedsUserTouchToPlay(true);
-                    setIsPlaying(false);
-                  });
-                }
-                setIsPlaying(true);
               } catch (err) {
-                setNeedsUserTouchToPlay(true);
+                // ignore
               }
+              setNeedsUserTouchToPlay(true);
+              setIsPlaying(false);
             },
             onStateChange: (event: any) => {
               if (!isMounted) return;
               // 1: PLAYING, 2: PAUSED, 0: ENDED, 3: BUFFERING
               if (event.data === 1) {
+                setHasStarted(true);
                 setIsPlaying(true);
                 setNeedsUserTouchToPlay(false);
                 triggerControlsTimeout();
+              } else if (event.data === 3) {
+                setHasStarted(true);
               } else if (event.data === 2) {
                 setIsPlaying(false);
                 setShowControls(true);
@@ -465,12 +461,12 @@ export const CustomShieldedVideoPlayer: React.FC<CustomShieldedVideoPlayerProps>
       )}
 
       {/* Embedded YouTube Iframe Target */}
-      <div className="w-full h-full pointer-events-none relative flex items-center justify-center bg-black">
+      <div className="w-full h-full relative flex items-center justify-center bg-black">
         <iframe
           id={`yt-iframe-${videoId}`}
           ref={iframeRef}
           className="w-full h-full absolute inset-0 border-0"
-          src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1&controls=0&modestbranding=1&rel=0&showinfo=0&fs=0&iv_load_policy=3&disablekb=1&playsinline=1&origin=${encodeURIComponent(
+          src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=0&controls=0&modestbranding=1&rel=0&showinfo=0&fs=0&iv_load_policy=3&disablekb=1&playsinline=1&origin=${encodeURIComponent(
             window.location.origin
           )}`}
           title={title}
@@ -481,15 +477,26 @@ export const CustomShieldedVideoPlayer: React.FC<CustomShieldedVideoPlayerProps>
 
       {/* SHIELD OVERLAYS: Prevents accidental clicks to external YouTube links */}
       {/* Top Banner Shield */}
-      <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black/80 via-black/40 to-transparent z-10 pointer-events-none" />
-      {/* Bottom YouTube Logo Shield */}
-      <div className="absolute bottom-0 left-0 w-36 h-20 z-10 pointer-events-none" />
+      <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-black/80 via-black/40 to-transparent z-10 pointer-events-auto" />
+      {/* Bottom YouTube Logo Shield (Left & Right to be safe) */}
+      <div className="absolute bottom-0 left-0 w-36 h-20 z-10 pointer-events-auto" />
+      <div className="absolute bottom-0 right-0 w-36 h-20 z-10 pointer-events-auto" />
 
       {/* Interactive Touch/Click Layer */}
       <div
-        onClick={togglePlayPause}
-        onTouchEnd={handleTouchCanvas}
-        className="absolute inset-0 z-20 cursor-pointer flex items-center justify-center"
+        onClick={(e) => {
+          if (hasStarted) {
+            togglePlayPause();
+          }
+        }}
+        onTouchEnd={(e) => {
+          if (hasStarted) {
+            handleTouchCanvas(e);
+          }
+        }}
+        className={`absolute inset-0 z-20 flex items-center justify-center ${
+          hasStarted ? 'cursor-pointer pointer-events-auto' : 'pointer-events-none'
+        }`}
       >
         {/* Animated Ripple Icon */}
         {centerRipple && (
@@ -514,7 +521,7 @@ export const CustomShieldedVideoPlayer: React.FC<CustomShieldedVideoPlayerProps>
               <Play className="w-8 h-8 md:w-12 md:h-12 ml-1 fill-white" />
             </button>
             <span className="bg-black/80 backdrop-blur-md text-white text-xs md:text-sm font-bold px-4 py-1.5 rounded-full border border-rose-500/50 shadow-lg">
-              اضغط للتشغيل الآن 🎬
+              اضغط للتشغيل
             </span>
           </div>
         )}

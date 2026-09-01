@@ -185,15 +185,6 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
 
   // Video modal player state
   const [activeVideo, setActiveVideo] = useState<any>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [isMuted, setIsMuted] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isFakeFullscreen, setIsFakeFullscreen] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const videoPlayerRef = useRef<HTMLIFrameElement | null>(null);
 
   // Teacher Avatar Image error state
   const [teacherAvatarError, setTeacherAvatarError] = useState(false);

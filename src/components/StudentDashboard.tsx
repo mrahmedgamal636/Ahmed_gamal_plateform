@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CustomShieldedVideoPlayer } from './CustomShieldedVideoPlayer';
+import { YoutubePlayer } from './YoutubePlayer';
 import { db } from '../lib/firebase';
 import { 
   collection, 
@@ -1473,7 +1473,7 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
               className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-2 md:p-6"
             >
               <div className="w-full max-w-5xl">
-                <CustomShieldedVideoPlayer
+                <YoutubePlayer
                   url={activeVideo.youtube_url}
                   title={activeVideo.title}
                   onClose={() => setActiveVideo(null)}

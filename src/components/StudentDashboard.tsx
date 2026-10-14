@@ -2425,7 +2425,7 @@ export default function StudentDashboard({ onLogout, currentTheme = 'marvel', on
             Designed & Developed by <span className="text-rose-500 font-extrabold shadow-sm">Abdelrahman Tarek</span>
           </p>
           <a
-            href="https://se-abdulrahman.vercel.app/"
+            href="https://swe-abdulrahman.vercel.app/"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-xs font-black text-white bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 transition duration-300 px-6 py-3 rounded-xl border border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:shadow-[0_0_25px_rgba(239,68,68,0.4)] transform hover:-translate-y-0.5"
